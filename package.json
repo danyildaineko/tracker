@@ -1,0 +1,94 @@
+{
+  "name": "habit-tracker",
+  "version": "2.0.0",
+  "description": "A modern, responsive habit tracker with dark mode, timer, streaks, and drag-and-drop reordering. No build process required - just open and use!",
+  "main": "habit-tracker.html",
+  "homepage": "https://github.com/your-username/habit-tracker",
+  "scripts": {
+    "start": "echo 'Open habit-tracker.html in your browser to start the app'",
+    "dev": "echo 'No build process needed - just edit files and refresh browser'",
+    "serve": "python -m http.server 8000 || python3 -m http.server 8000",
+    "test": "echo 'Open habit-tracker.html in different browsers to test'",
+    "lint": "echo 'Use your preferred linter or IDE for code quality checks'"
+  },
+  "keywords": [
+    "habit-tracker",
+    "productivity",
+    "habits",
+    "react",
+    "tailwindcss",
+    "dark-mode",
+    "responsive",
+    "timer",
+    "pomodoro",
+    "streaks",
+    "drag-drop",
+    "keyboard-shortcuts",
+    "localStorage",
+    "no-build",
+    "vanilla-js",
+    "single-page-app",
+    "pwa-ready"
+  ],
+  "author": {
+    "name": "Habit Tracker Contributors",
+    "url": "https://github.com/your-username/habit-tracker/graphs/contributors"
+  },
+  "contributors": [
+    {
+      "name": "Community Contributors",
+      "url": "https://github.com/your-username/habit-tracker/graphs/contributors"
+    }
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/your-username/habit-tracker/issues",
+    "email": "your-email@example.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/habit-tracker.git"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/your-username"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@babel/standalone": "^7.23.0"
+  },
+  "peerDependencies": {
+    "tailwindcss": "^3.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "Chrome >= 88",
+    "Firefox >= 85",
+    "Safari >= 14",
+    "Edge >= 88"
+  ],
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "files": [
+    "habit-tracker.html",
+    "assets/",
+    "LICENSE",
+    "README.md",
+    "CONTRIBUTING.md"
+  ],
+  "config": {
+    "port": 8000
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ]
+}

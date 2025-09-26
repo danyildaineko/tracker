@@ -1,0 +1,424 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
+// Single‑file Habit Tracker with Dark Mode + List/Table views
+// Tailwind CSS, localStorage, streaks, drag‑reorder, keyboard: N/T/←/→
+
+const STORAGE_KEY = "habit-tracker-v2";
+const THEME_KEY = "habit-tracker-theme"; // "dark" | "light"
+const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Zurich";
+
+// ---------- helpers ----------
+function isoDate(d = new Date()): string {
+  const y = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric" }).format(d);
+  const m = new Intl.DateTimeFormat("en-CA", { timeZone: tz, month: "2-digit" }).format(d);
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: tz, day: "2-digit" }).format(d);
+  return `${y}-${m}-${day}`;
+}
+function addDays(dateStr: string, delta: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  return isoDate(dt);
+}
+function monthRange(dateStr: string) {
+  const [y, m] = dateStr.split("-").map(Number);
+  const first = `${y}-${String(m).padStart(2, '0')}-01`;
+  const start = new Date(first + "T00:00:00");
+  const end = new Date(Date.UTC(y, m, 0)); // last day of month (day 0 of next month)
+  const days: string[] = [];
+  let d = isoDate(start);
+  while (true) {
+    days.push(d);
+    if (d === isoDate(end)) break;
+    d = addDays(d, 1);
+    if (days.length > 40) break;
+  }
+  return days;
+}
+function startOfWeek(dateStr: string, weekStartsOn = 1) {
+  const date = new Date(dateStr + "T00:00:00");
+  const day = (date.getDay() + 7 - weekStartsOn) % 7;
+  return addDays(isoDate(date), -day);
+}
+function range(n: number) { return [...Array(n).keys()]; }
+function uid() { return Math.random().toString(36).slice(2, 10); }
+function classNames(...xs: (string | false | undefined | null)[]) { return xs.filter(Boolean).join(" "); }
+
+// ---------- types ----------
+export type Habit = { id: string; name: string; color: string; icon?: string; repeatDays: number[]; createdAt: string; archived?: boolean; order: number };
+export type Store = { habits: Habit[]; completions: Record<string, string[]> };
+
+// ---------- storage ----------
+function loadStore(): Store {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) throw new Error("empty");
+    const parsed = JSON.parse(raw);
+    parsed.habits = parsed.habits.map((h: Habit, i: number) => ({ order: i, ...h, order: h.order ?? i }));
+    return parsed;
+  } catch {
+    const today = isoDate();
+    return {
+      habits: [
+        { id: uid(), name: "Water 2L", color: "bg-blue-100 dark:bg-blue-900/40", icon: "💧", repeatDays: [0,1,2,3,4,5,6], createdAt: today, order: 0 },
+        { id: uid(), name: "10k steps", color: "bg-lime-100 dark:bg-lime-900/40", icon: "🚶", repeatDays: [0,1,2,3,4,5,6], createdAt: today, order: 1 },
+        { id: uid(), name: "Read 20m", color: "bg-amber-100 dark:bg-amber-900/40", icon: "📖", repeatDays: [0,1,2,3,4,5,6], createdAt: today, order: 2 },
+      ],
+      completions: {},
+    };
+  }
+}
+function saveStore(store: Store) { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }
+
+// ---------- streaks ----------
+function hasCompleted(store: Store, date: string, habitId: string) { return !!store.completions[date]?.includes(habitId); }
+function isScheduled(h: Habit, date: string) {
+  const dt = new Date(date + "T00:00:00");
+  const dow = dt.getDay();
+  return h.repeatDays.includes(dow) && (!h.archived);
+}
+function calcStreak(store: Store, habit: Habit, fromDate: string) {
+  let streak = 0; let d = fromDate;
+  while (true) {
+    const beforeCreated = d < habit.createdAt;
+    const scheduled = isScheduled(habit, d);
+    const done = hasCompleted(store, d, habit.id);
+    if (scheduled && done) streak += 1; else if (scheduled && !done) break;
+    if (beforeCreated) break;
+    const prev = addDays(d, -1); if (prev === d) break; d = prev; if (streak > 3650) break;
+  }
+  return streak;
+}
+
+// ---------- theme ----------
+function useDarkMode() {
+  const [dark, setDark] = useState<boolean>(() => {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "dark") return true;
+    if (saved === "light") return false;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+  useEffect(() => {
+    const root = document.documentElement;
+    if (dark) { root.classList.add('dark'); localStorage.setItem(THEME_KEY, 'dark'); }
+    else { root.classList.remove('dark'); localStorage.setItem(THEME_KEY, 'light'); }
+  }, [dark]);
+  return { dark, setDark } as const;
+}
+
+// ---------- main ----------
+export default function HabitApp() {
+  const [store, setStore] = useState<Store>(() => loadStore());
+  const [date, setDate] = useState<string>(() => isoDate());
+  const [filter, setFilter] = useState<"all" | "active" | "archived">("all");
+  const [view, setView] = useState<"list" | "table">("list");
+  const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState<Habit | null>(null);
+  const newNameRef = useRef<HTMLInputElement>(null);
+  const { dark, setDark } = useDarkMode();
+
+  useEffect(() => saveStore(store), [store]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") setDate(d => addDays(d, -1));
+      if (e.key === "ArrowRight") setDate(d => addDays(d, +1));
+      if (e.key.toLowerCase() === "t") setDate(isoDate());
+      if (e.key.toLowerCase() === "n") { e.preventDefault(); startCreate(); }
+    };
+    window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const habits = useMemo(() => {
+    return [...store.habits]
+      .filter(h => (filter === "all" ? true : filter === "active" ? !h.archived : !!h.archived))
+      .filter(h => h.name.toLowerCase().includes(query.toLowerCase()))
+      .sort((a, b) => a.order - b.order);
+  }, [store.habits, filter, query]);
+
+  const scheduledToday = habits.filter(h => isScheduled(h, date) && !h.archived);
+  const completedToday = scheduledToday.filter(h => hasCompleted(store, date, h.id));
+  const progress = scheduledToday.length ? Math.round((completedToday.length / scheduledToday.length) * 100) : 0;
+
+  function toggle(h: Habit, d: string = date) {
+    setStore(prev => {
+      const list = new Set(prev.completions[d] || []);
+      if (list.has(h.id)) list.delete(h.id); else list.add(h.id);
+      return { ...prev, completions: { ...prev.completions, [d]: [...list] } };
+    });
+  }
+  function startCreate() {
+    const h: Habit = { id: uid(), name: "", color: pickColor(), icon: "✅", repeatDays: [0,1,2,3,4,5,6], createdAt: isoDate(), order: store.habits.length };
+    setEditing(h); setTimeout(() => newNameRef.current?.focus(), 0);
+  }
+  function saveHabit(h: Habit) {
+    setStore(prev => { const exists = prev.habits.find(x => x.id === h.id); const habits = exists ? prev.habits.map(x => x.id === h.id ? h : x) : [...prev.habits, h]; return { ...prev, habits }; });
+    setEditing(null);
+  }
+  function deleteHabit(id: string) {
+    if (!confirm("Delete habit? This does not remove past checkmarks.")) return;
+    setStore(prev => ({ habits: prev.habits.filter(h => h.id !== id), completions: prev.completions }));
+  }
+  function clearToday() { if (!confirm("Uncheck all for this day?")) return; setStore(prev => ({ ...prev, completions: { ...prev.completions, [date]: [] } })); }
+  function reorder(from: number, to: number) {
+    setStore(prev => { const hs = [...prev.habits].sort((a,b)=>a.order-b.order); const [moved] = hs.splice(from, 1); hs.splice(to, 0, moved); const withOrder = hs.map((h, i) => ({ ...h, order: i })); return { ...prev, habits: withOrder }; });
+  }
+
+  const weekStart = startOfWeek(date, 1);
+  const weekDays = range(7).map(i => addDays(weekStart, i));
+  const weekPct = weekDays.map(d => { const sh = store.habits.filter(h => isScheduled(h, d) && !h.archived); const ch = sh.filter(h => hasCompleted(store, d, h.id)); return sh.length ? Math.round((ch.length / sh.length) * 100) : 0; });
+
+  return (
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+      <header className="sticky top-0 z-10 backdrop-blur bg-white/70 dark:bg-neutral-900/70 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="mx-auto max-w-4xl px-4 py-3 flex items-center gap-3">
+          <div className="font-semibold tracking-tight">Habit Tracker</div>
+          <div className="ml-auto flex items-center gap-2">
+            <button className="px-2 py-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={()=>setDate(d=>addDays(d,-1))}>←</button>
+            <input type="date" value={date} onChange={(e)=>setDate(e.target.value)} className="px-2 py-1 border rounded text-sm bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700" />
+            <button className="px-2 py-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={()=>setDate(d=>addDays(d,1))}>→</button>
+            <button className="px-3 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={()=>setDate(isoDate())}>Today</button>
+            <button onClick={()=>setDark(!dark)} className="px-3 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800">{dark ? "☾" : "☀"} {dark ? "Dark" : "Light"}</button>
+          </div>
+        </div>
+        <div className="mx-auto max-w-4xl px-4 pb-3">
+          <WeekStrip days={weekDays} pct={weekPct} activeDate={date} onPick={setDate} />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-4xl p-4">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="text-sm text-neutral-600 dark:text-neutral-300">{scheduledToday.length} scheduled • {completedToday.length} done</div>
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="hidden sm:flex items-center rounded border overflow-hidden border-neutral-300 dark:border-neutral-700">
+              <button onClick={()=>setView('list')} className={classNames('px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800', view==='list' && 'bg-black text-white dark:bg-white dark:text-black')}>List</button>
+              <button onClick={()=>setView('table')} className={classNames('px-3 py-2 text-sm border-l border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800', view==='table' && 'bg-black text-white dark:bg-white dark:text-black')}>Table</button>
+            </div>
+            <input placeholder="Search" value={query} onChange={e=>setQuery(e.target.value)} className="px-3 py-2 border rounded w-48 bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700" />
+            <select value={filter} onChange={e=>setFilter(e.target.value as any)} className="px-3 py-2 border rounded bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700">
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+            </select>
+            <button onClick={startCreate} className="px-3 py-2 rounded bg-black text-white dark:bg-white dark:text-black">New habit</button>
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <div className="h-2 bg-neutral-200 dark:bg-neutral-800 rounded overflow-hidden">
+            <div className="h-full bg-green-500" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">{progress}% complete</div>
+        </div>
+
+        <div className="flex items-center gap-2 mb-4">
+          <button onClick={()=>scheduledToday.forEach(h=>toggle(h))} className="px-3 py-2 border rounded border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800">Toggle all</button>
+          <button onClick={clearToday} className="px-3 py-2 border rounded border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800">Clear day</button>
+          <span className="text-xs text-neutral-500 dark:text-neutral-400">Shortcuts: N=new, T=today, ←/→ navigate</span>
+        </div>
+
+        {view === 'list' ? (
+          <ul>
+            {habits.map((h, i) => (
+              <HabitRow
+                key={h.id}
+                habit={h}
+                date={date}
+                scheduled={isScheduled(h, date)}
+                done={hasCompleted(store, date, h.id)}
+                streak={calcStreak(store, h, date)}
+                onToggle={()=>toggle(h)}
+                onEdit={()=>setEditing(h)}
+                onDelete={()=>deleteHabit(h.id)}
+                onArchive={()=>saveHabit({ ...h, archived: !h.archived })}
+                index={i}
+                onReorder={reorder}
+              />
+            ))}
+          </ul>
+        ) : (
+          <TableView habits={habits.filter(h=>!h.archived)} days={monthRange(date)} store={store} onToggle={(d,h)=>toggle(h,d)} />
+        )}
+      </main>
+
+      {editing && (
+        <EditDialog initial={editing} onClose={()=>setEditing(null)} onSave={saveHabit} nameRef={newNameRef} />
+      )}
+
+      <footer className="mx-auto max-w-4xl p-6 text-xs text-neutral-500 dark:text-neutral-400">
+        Built with localStorage. Your data stays in your browser.
+      </footer>
+    </div>
+  );
+}
+
+function HabitRow({ habit, scheduled, done, date, streak, onToggle, onEdit, onDelete, onArchive, index, onReorder }:
+  { habit: Habit; scheduled: boolean; done: boolean; date: string; streak: number; onToggle: ()=>void; onEdit: ()=>void; onDelete: ()=>void; onArchive: ()=>void; index: number; onReorder: (from:number, to:number)=>void; }) {
+  const dragIndex = useRef<number | null>(null);
+  return (
+    <li
+      className={classNames("group border rounded-xl p-3 mb-3 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-sm", !scheduled && !habit.archived && "opacity-60")}
+      draggable
+      onDragStart={(e)=>{ dragIndex.current = index; e.dataTransfer.effectAllowed = "move"; }}
+      onDragOver={(e)=>{ e.preventDefault(); }}
+      onDrop={(e)=>{ e.preventDefault(); if (dragIndex.current!=null && dragIndex.current!==index) onReorder(dragIndex.current, index); dragIndex.current = null; }}
+    >
+      <div className="flex items-center gap-3">
+        <button onClick={onToggle} className={classNames("w-6 h-6 rounded border flex items-center justify-center border-neutral-300 dark:border-neutral-700", done ? "bg-green-500 border-green-500 text-white" : "bg-white dark:bg-neutral-900")} title={done ? "Mark not done" : "Mark done"}>
+          {done ? "✓" : ""}
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={classNames("inline-flex items-center justify-center w-6 h-6 rounded", habit.color)}>{habit.icon || "•"}</span>
+            <div className="font-medium truncate">{habit.name || <span className="text-neutral-400">Untitled habit</span>}</div>
+            {habit.archived && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">archived</span>}
+            {!scheduled && !habit.archived && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">not scheduled today</span>}
+          </div>
+          <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            <span className="mr-3">Streak: <b>{streak}</b></span>
+            <span className="mr-3">Created: {habit.createdAt}</span>
+            <span>Repeat: {repeatLabel(habit.repeatDays)}</span>
+          </div>
+        </div>
+        <div className="opacity-0 group-hover:opacity-100 transition flex items-center gap-1">
+          <button className="px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={onEdit}>Edit</button>
+          <button className="px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={onArchive}>{habit.archived?"Unarchive":"Archive"}</button>
+          <button className="px-2 py-1 text-xs rounded border border-red-300 text-red-600 dark:border-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={onDelete}>Delete</button>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function WeekStrip({ days, pct, activeDate, onPick }:{ days:string[]; pct:number[]; activeDate:string; onPick:(d:string)=>void; }) {
+  return (
+    <div className="flex items-center gap-2">
+      {days.map((d, i) => (
+        <button key={d} onClick={()=>onPick(d)} className={classNames("flex-1 rounded-lg p-2 border text-left border-transparent hover:border-neutral-300 dark:hover:border-neutral-700", d===activeDate?"border-black dark:border-white":"")}
+          title={`${d} • ${pct[i]}% completed`}>
+          <div className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{new Date(d).toLocaleDateString(undefined,{ weekday:'short'})}</div>
+          <div className="text-sm">{d.slice(5)}</div>
+          <div className="mt-1 h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded">
+            <div className="h-full rounded bg-black dark:bg-white" style={{ width: `${pct[i]}%` }} />
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function EditDialog({ initial, onSave, onClose, nameRef }:{ initial: Habit; onSave:(h:Habit)=>void; onClose:()=>void; nameRef: React.RefObject<HTMLInputElement>; }) {
+  const [draft, setDraft] = useState<Habit>(initial);
+  function setDay(dow: number, on: boolean) { setDraft(h => ({ ...h, repeatDays: on ? Array.from(new Set([...h.repeatDays, dow])).sort() : h.repeatDays.filter(x=>x!==dow) })); }
+  return (
+    <div className="fixed inset-0 z-20 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-neutral-900 shadow-xl border border-neutral-200 dark:border-neutral-800 p-4" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center gap-2 mb-3">
+          <div className={classNames("w-8 h-8 rounded flex items-center justify-center", draft.color)}>{draft.icon}</div>
+          <input ref={nameRef} value={draft.name} onChange={e=>setDraft(h=>({ ...h, name: e.target.value }))} placeholder="Habit name" className="flex-1 px-3 py-2 border rounded bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <label className="block text-xs font-medium">Emoji</label>
+            <input value={draft.icon} onChange={e=>setDraft(h=>({ ...h, icon: e.target.value }))} className="px-3 py-2 border rounded w-24 bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700" />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-medium">Color</label>
+            <ColorPicker value={draft.color} onChange={v=>setDraft(h=>({ ...h, color: v }))} />
+          </div>
+        </div>
+        <div className="mt-4">
+          <label className="block text-xs font-medium mb-1">Repeat on</label>
+          <div className="grid grid-cols-7 gap-1">
+            {"SMTWTFS".split("").map((lbl, i) => (
+              <button key={i} onClick={()=>setDay(i, !draft.repeatDays.includes(i))} className={classNames("py-2 rounded border text-sm border-neutral-300 dark:border-neutral-700", draft.repeatDays.includes(i)?"bg-black text-white dark:bg-white dark:text-black":"bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800")}>{lbl}</button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 flex items-center justify-between">
+          <button className="px-3 py-2 border rounded border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={onClose}>Cancel</button>
+          <div className="flex items-center gap-2">
+            <button className="px-3 py-2 border rounded border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={()=>setDraft(h=>({ ...h, archived: !h.archived }))}>{draft.archived?"Unarchive":"Archive"}</button>
+            <button className="px-3 py-2 rounded bg-black text-white dark:bg-white dark:text-black" onClick={()=>onSave(draft)} disabled={!draft.name.trim()}>Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TableView({ habits, days, store, onToggle }:{ habits: Habit[]; days: string[]; store: Store; onToggle: (date:string, h:Habit)=>void; }) {
+  const weekday = (d:string) => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' });
+  return (
+    <div className="overflow-auto border rounded-xl bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
+      <table className="min-w-full text-sm">
+        <thead>
+          <tr>
+            <th className="sticky left-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 px-3 py-2 text-left w-56">Habits</th>
+            {days.map(d => (
+              <th key={d} className="border-b border-neutral-200 dark:border-neutral-800 px-2 py-1 font-normal text-neutral-500 dark:text-neutral-400">
+                <div className="text-[10px] uppercase">{weekday(d).slice(0,1)}</div>
+                <div>{parseInt(d.slice(8),10)}</div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {habits.map(h => (
+            <tr key={h.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/60">
+              <td className="sticky left-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 px-3 py-2 font-medium whitespace-nowrap">
+                <div className="flex items-center gap-2">
+                  <span className={classNames('inline-flex w-5 h-5 items-center justify-center rounded', h.color)}>{h.icon}</span>
+                  {h.name}
+                </div>
+              </td>
+              {days.map(d => {
+                const scheduled = isScheduled(h, d);
+                const done = hasCompleted(store, d, h.id);
+                return (
+                  <td key={d} className={classNames('border-t border-neutral-200 dark:border-neutral-800 text-center align-middle p-0', !scheduled && 'bg-neutral-100/60 dark:bg-neutral-800/40')}
+                      title={d + (scheduled? (done? ' • done' : ' • scheduled') : ' • not scheduled')}>
+                    {scheduled ? (
+                      <button onClick={()=>onToggle(d,h)} className={classNames('w-8 h-8 m-1 rounded border inline-flex items-center justify-center border-neutral-300 dark:border-neutral-700', done ? 'bg-green-500 border-green-500 text-white' : 'bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800')}>
+                        {done ? '✓' : ''}
+                      </button>
+                    ) : (
+                      <div className="w-8 h-8 m-1" />
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ColorPicker({ value, onChange }:{ value:string; onChange:(v:string)=>void; }) {
+  const options = [
+    "bg-neutral-100 dark:bg-neutral-800","bg-zinc-100 dark:bg-zinc-800","bg-slate-100 dark:bg-slate-800",
+    "bg-rose-100 dark:bg-rose-900/40","bg-pink-100 dark:bg-pink-900/40","bg-fuchsia-100 dark:bg-fuchsia-900/40","bg-purple-100 dark:bg-purple-900/40","bg-violet-100 dark:bg-violet-900/40","bg-indigo-100 dark:bg-indigo-900/40",
+    "bg-blue-100 dark:bg-blue-900/40","bg-sky-100 dark:bg-sky-900/40","bg-cyan-100 dark:bg-cyan-900/40","bg-teal-100 dark:bg-teal-900/40","bg-emerald-100 dark:bg-emerald-900/40","bg-green-100 dark:bg-green-900/40","bg-lime-100 dark:bg-lime-900/40",
+    "bg-yellow-100 dark:bg-yellow-900/40","bg-amber-100 dark:bg-amber-900/40","bg-orange-100 dark:bg-orange-900/40","bg-red-100 dark:bg-red-900/40",
+  ];
+  return (
+    <div className="flex flex-wrap gap-1">
+      {options.map(c => (
+        <button key={c} onClick={()=>onChange(c)} className={classNames("w-6 h-6 rounded border border-neutral-300 dark:border-neutral-700", c, value===c && "ring-2 ring-black dark:ring-white")} title={c} />
+      ))}
+    </div>
+  );
+}
+
+function repeatLabel(days: number[]) {
+  if (days.length === 7) return "Daily";
+  if (JSON.stringify(days) === JSON.stringify([1,2,3,4,5])) return "Weekdays";
+  if (JSON.stringify(days) === JSON.stringify([0,6])) return "Weekends";
+  const names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; return days.map(d => names[d]).join(", ");
+}
+function pickColor() {
+  const palette = ["bg-blue-100 dark:bg-blue-900/40","bg-amber-100 dark:bg-amber-900/40","bg-green-100 dark:bg-green-900/40","bg-rose-100 dark:bg-rose-900/40","bg-indigo-100 dark:bg-indigo-900/40","bg-lime-100 dark:bg-lime-900/40"]; 
+  return palette[Math.floor(Math.random()*palette.length)];
+}

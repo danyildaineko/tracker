@@ -1,0 +1,237 @@
+# Habit Tracker - Git Ignore Rules
+# This file specifies which files and directories should be ignored by Git
+
+# ========================================
+# EDITOR AND IDE FILES
+# ========================================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs (IntelliJ, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ========================================
+# OPERATING SYSTEM FILES
+# ========================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.tmp
+*.temp
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ========================================
+# DEVELOPMENT FILES
+# ========================================
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+.nyc_output/
+
+# Dependency directories
+# Note: We don't ignore node_modules since this project uses CDN dependencies
+# node_modules/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# ========================================
+# ENVIRONMENT AND CONFIG FILES
+# ========================================
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Local configuration files
+config.local.js
+config.local.json
+
+# ========================================
+# BUILD AND DISTRIBUTION FILES
+# ========================================
+
+# Build outputs (not applicable for this project, but good to have)
+build/
+dist/
+out/
+
+# Parcel cache
+.cache/
+.parcel-cache/
+
+# Next.js build output
+next/
+
+# Nuxt.js build / generate output
+.nuxt/
+
+# Gatsby files
+.cache/
+public/
+
+# Vuepress build output
+.vuepress/dist/
+
+# ========================================
+# TESTING FILES
+# ========================================
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Jest
+.jest/
+
+# ========================================
+# DEPLOYMENT FILES
+# ========================================
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# ========================================
+# BACKUP AND TEMPORARY FILES
+# ========================================
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+.temp/
+
+# Archive files (unless intentionally included)
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# ========================================
+# PROJECT-SPECIFIC IGNORES
+# ========================================
+
+# Local development server files
+.serve/
+
+# Local testing files
+test-data/
+demo-data/
+
+# User-specific habit data (if any files are created)
+user-habits.json
+local-storage-backup.json
+
+# Screenshots and recordings for documentation
+screenshots/
+recordings/
+
+# Performance profiling files
+*.cpuprofile
+*.heapprofile

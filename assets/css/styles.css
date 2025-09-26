@@ -1,0 +1,80 @@
+/* Custom styles for Habit Tracker */
+/* This file contains any custom CSS that complements TailwindCSS */
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Smooth transitions for theme switching */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Remove all focus outlines */
+*:focus {
+  outline: none !important;
+}
+
+/* Remove Chrome's default focus outline */
+input:focus,
+textarea:focus,
+button:focus,
+select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Drag and drop visual feedback */
+[draggable="true"] {
+  cursor: grab;
+}
+
+[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* Animation for progress bar */
+.progress-bar {
+  transition: width 0.3s ease;
+}
+
+/* Custom backdrop blur for better browser support */
+.backdrop-blur-fallback {
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+.dark .backdrop-blur-fallback {
+  background-color: rgba(23, 23, 23, 0.8);
+}
+
+/* Ensure proper spacing in mobile view */
+@media (max-width: 640px) {
+  .mobile-padding {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}

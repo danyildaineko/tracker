@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tracker</title>
+    <meta name="description" content="A modern tracker with dark mode, streaks, and drag-and-drop reordering" />
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%23333%22/></svg>" />
+    
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+    
+    <!-- Configure Tailwind for dark mode -->
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+  </head>
+  <body class="min-h-screen">
+    <!-- Theme detection script -->
+    <script>
+      // Apply theme immediately to prevent flash
+      (function() {
+        const THEME_KEY = "habit-tracker-theme";
+        const saved = localStorage.getItem(THEME_KEY);
+        let isDark = false;
+        
+        if (saved === "dark") {
+          isDark = true;
+        } else if (saved === "light") {
+          isDark = false;
+        } else {
+          // Check system preference
+          isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
+    <!-- Main App Container -->
+    <div id="root">
+      <!-- Loading state -->
+      <div class="min-h-screen bg-white dark:bg-black flex items-center justify-center">
+        <div class="text-center">
+          <div class="text-lg font-medium text-black dark:text-white">Loading Habit Tracker...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- React and ReactDOM (development) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX in-browser (for demo) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Application Scripts -->
+    <script type="text/babel" src="./assets/js/app.js"></script>
+    <script type="text/babel" src="./assets/js/components.js"></script>
+    <script type="text/babel" src="./assets/js/ui-components.js"></script>
+    
+    <!-- Initialize App -->
+    <script type="text/babel">
+      // Initialize the application when DOM is ready
+      document.addEventListener('DOMContentLoaded', function() {
+        initializeApp();
+      });
+      
+      // Fallback initialization
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeApp);
+      } else {
+        initializeApp();
+      }
+    </script>
+  </body>
+</html>
