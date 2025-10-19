@@ -130,7 +130,7 @@ function EditDialog({ initial, onSave, onClose, nameRef }) {
   );
 }
 
-function TableView({ habits, days, store, onToggle, currentDate, onAddHabit, onReorder }) {
+function TableView({ habits, days, store, onToggle, currentDate, onAddHabit, onReorder, showMonthHeader = false }) {
   const weekday = (d) => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' });
   
   // Fast add habit state
@@ -219,16 +219,18 @@ function TableView({ habits, days, store, onToggle, currentDate, onAddHabit, onR
   return (
     <div className="border rounded-xl bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
       {/* Month and Year Header */}
-      <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200">
-            {monthYear}
-          </h2>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-            {selectedDay}
-          </p>
+      {showMonthHeader && (
+        <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
+          <div className="text-center">
+            <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200">
+              {monthYear}
+            </h2>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+              {selectedDay}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
       
       <div ref={tableRef} className="overflow-hidden">
         <table className="w-full text-sm">

@@ -36,12 +36,43 @@ function HabitApp() {
   const [view, setView] = useState("table"); // list | table
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState(null);
-  const [showDateTabs, setShowDateTabs] = useState(false); // Toggle for date tabs
-  const [showTimer, setShowTimer] = useState(true); // Toggle for timer
+  const [showTable, setShowTable] = useState(() => {
+    const saved = localStorage.getItem('tracker-show-table');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+  const [showMonthHeader, setShowMonthHeader] = useState(() => {
+    const saved = localStorage.getItem('tracker-show-month-header');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [showCalendar, setShowCalendar] = useState(() => {
+    const saved = localStorage.getItem('tracker-show-calendar');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+  const [showTimer, setShowTimer] = useState(() => {
+    const saved = localStorage.getItem('tracker-show-timer');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const newNameRef = useRef(null);
   const { dark, setDark } = useDarkMode();
 
   useEffect(() => saveStore(store), [store]);
+
+  // Save toggle states to localStorage
+  useEffect(() => {
+    localStorage.setItem('tracker-show-table', JSON.stringify(showTable));
+  }, [showTable]);
+
+  useEffect(() => {
+    localStorage.setItem('tracker-show-month-header', JSON.stringify(showMonthHeader));
+  }, [showMonthHeader]);
+
+  useEffect(() => {
+    localStorage.setItem('tracker-show-calendar', JSON.stringify(showCalendar));
+  }, [showCalendar]);
+
+  useEffect(() => {
+    localStorage.setItem('tracker-show-timer', JSON.stringify(showTimer));
+  }, [showTimer]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -114,12 +145,14 @@ function HabitApp() {
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center gap-3">
           <div className="font-semibold tracking-tight">Tracker</div>
           <div className="ml-auto flex items-center gap-2">
-            <button className="px-2 py-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={()=>setDate(d=>addDays(d,-1))}>←</button>
-            <input type="date" value={date} onChange={(e)=>setDate(e.target.value)} className="px-2 py-1 border rounded text-sm bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700" />
-            <button className="px-2 py-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={()=>setDate(d=>addDays(d,1))}>→</button>
-            <button className="px-3 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={()=>setDate(isoDate())}>Today</button>
-            <button onClick={()=>setShowDateTabs(!showDateTabs)} className="px-3 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" title={showDateTabs ? "Hide date tabs" : "Show date tabs"}>
-              {showDateTabs ? "Hide Tabs" : "Show Tabs"}
+            <button onClick={()=>setShowMonthHeader(!showMonthHeader)} className="px-3 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" title={showMonthHeader ? "Hide header" : "Show header"}>
+              {showMonthHeader ? "Hide Header" : "Show Header"}
+            </button>
+            <button onClick={()=>setShowCalendar(!showCalendar)} className="px-3 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" title={showCalendar ? "Hide calendar" : "Show calendar"}>
+              {showCalendar ? "Hide Calendar" : "Show Calendar"}
+            </button>
+            <button onClick={()=>setShowTable(!showTable)} className="px-3 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" title={showTable ? "Hide table" : "Show table"}>
+              {showTable ? "Hide Table" : "Show Table"}
             </button>
             <button onClick={()=>setShowTimer(!showTimer)} className="px-3 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" title={showTimer ? "Hide timer" : "Show timer"}>
               {showTimer ? "Hide Timer" : "Timer"}
@@ -127,8 +160,14 @@ function HabitApp() {
             <button onClick={()=>setDark(!dark)} className="px-3 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800">{dark ? "Dark" : "Light"}</button>
           </div>
         </div>
-        {showDateTabs && (
+        {showCalendar && (
           <div className="mx-auto max-w-6xl px-4 pb-3">
+            <div className="flex items-center gap-2 mb-3">
+              <button className="px-2 py-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={()=>setDate(d=>addDays(d,-1))}>←</button>
+              <input type="date" value={date} onChange={(e)=>setDate(e.target.value)} className="px-2 py-1 border rounded text-sm bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700" />
+              <button className="px-2 py-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={()=>setDate(d=>addDays(d,1))}>→</button>
+              <button className="px-3 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={()=>setDate(isoDate())}>Today</button>
+            </div>
             <WeekStrip days={weekDays} pct={weekPct} activeDate={date} onPick={setDate} />
           </div>
         )}
@@ -136,45 +175,8 @@ function HabitApp() {
 
       <main className="flex justify-center min-h-[calc(100vh-200px)]">
         <div className="w-full max-w-6xl p-4">
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <div className="text-sm text-neutral-600 dark:text-neutral-300">{scheduledToday.length} scheduled • {completedToday.length} done</div>
-          <div className="flex items-center gap-2 ml-auto">
-            <button onClick={startCreate} className="px-3 py-2 rounded bg-black text-white dark:bg-white dark:text-black">New tracker</button>
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <div className="h-2 bg-neutral-200 dark:bg-neutral-800 rounded overflow-hidden">
-            <div className="h-full bg-neutral-500 dark:bg-neutral-400 progress-bar" style={{ width: `${progress}%` }} />
-          </div>
-          <div className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">{progress}% complete</div>
-        </div>
-
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-xs text-neutral-500 dark:text-neutral-400">Shortcuts: N=new, T=today, ←/→ navigate, 1-9=toggle trackers</span>
-        </div>
-
-        {view === 'list' ? (
-          <ul>
-            {habits.map((h, i) => (
-              <HabitRow
-                key={h.id}
-                habit={h}
-                date={date}
-                scheduled={isScheduled(h, date)}
-                done={hasCompleted(store, date, h.id)}
-                streak={calcStreak(store, h, date)}
-                onToggle={()=>toggle(h)}
-                onEdit={()=>setEditing(h)}
-                onDelete={()=>deleteHabit(h.id)}
-                onArchive={()=>saveHabit({ ...h, archived: !h.archived })}
-                index={i}
-                onReorder={reorder}
-              />
-            ))}
-          </ul>
-        ) : (
-          <TableView habits={habits.filter(h=>!h.archived)} days={monthRange(date)} store={store} onToggle={(d,h)=>toggle(h,d)} currentDate={date} onAddHabit={saveHabit} onReorder={reorder} />
+        {showTable && (
+          <TableView habits={habits.filter(h=>!h.archived)} days={monthRange(date)} store={store} onToggle={(d,h)=>toggle(h,d)} currentDate={date} onAddHabit={saveHabit} onReorder={reorder} showMonthHeader={showMonthHeader} />
         )}
 
         {showTimer && (
